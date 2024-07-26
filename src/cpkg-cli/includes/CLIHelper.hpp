@@ -17,8 +17,8 @@ extern CLI::App app;
 extern bool verbose;
 
 // Function declarations
-void add_global_flags(CLI::App& app);
-void add_global_flags(CLI::App* app);
+void add_global_flags(CLI::App& app_);
+void add_global_flags(CLI::App* app_);
 void verbose_printf(const char* format, ...);
 
 template<class F>
@@ -29,3 +29,5 @@ bool register_command(F f)
   add_global_flags(app_);
   return true;
 }
+
+bool string_to_int(const std::string& str, int& result);
