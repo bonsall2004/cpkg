@@ -1,6 +1,6 @@
-project(cpkg-core VERSION 1.0.0 LANGUAGES CXX)
+project(cpkg-core VERSION 0.0.1 LANGUAGES CXX)
 
-set(CPKG_CORE_LIB_VERSION 1.0.0)
+set(CPKG_CORE_LIB_VERSION 0.0.1)
 
 message(STATUS "cpkg-core found! [ver ${CPKG_CORE_LIB_VERSION}]")
 

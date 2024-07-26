@@ -1,6 +1,6 @@
-project(cpkg-cli VERSION 1.0.0 LANGUAGES CXX)
+project(cpkg-cli VERSION 0.0.1 LANGUAGES CXX)
 
-set(CPKG_VERSION 0.0.1)
+set(CPKG_VERSION 0.0.3)
 
 
 file(GLOB_RECURSE SUBCOMMAND_SOURCES "src/subcommands/*.cpp" "src/subcommands/*.hpp")
