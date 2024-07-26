@@ -4,24 +4,24 @@
 #include <iostream>
 #include <cstdarg>
 
-// Macros for unique naming
 #define CONCATENATE_IMPL(x, y) x##y
 #define CONCATENATE(x, y) CONCATENATE_IMPL(x, y)
 #define UNIQUE_NAME(base) CONCATENATE(base, __LINE__)
 
-// Function to register a subcommand setup
 #define REGISTER_SUBCOMMAND_SETUP(x) inline bool UNIQUE_NAME(REGISTERED_COMMAND_) = register_command(x);
 
-// Global variables
 extern CLI::App app;
 extern bool verbose;
 
-// Function declarations
 void add_global_flags(CLI::App& app_);
 void add_global_flags(CLI::App* app_);
+
+/**
+ * @brief Printf that only runs if the verbose flag has been enabled
+ */
 void verbose_printf(const char* format, ...);
 
-template<class F>
+template <class F>
 bool register_command(F f)
 {
   CLI::App* app_ = f(app);
@@ -30,4 +30,9 @@ bool register_command(F f)
   return true;
 }
 
+/**
+ * @param str Input String
+ * @param result Output Integer
+ * @return True if sucessful
+ */
 bool string_to_int(const std::string& str, int& result);

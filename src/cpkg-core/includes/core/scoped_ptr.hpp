@@ -7,21 +7,28 @@
 
 namespace cpkg::core
 {
-  template<typename T>
-  class scoped_ptr {
+  template <typename T>
+  class scoped_ptr
+  {
     public:
-      explicit scoped_ptr(T* ptr = nullptr) : ptr_(ptr) {}
+      explicit scoped_ptr(T* ptr = nullptr) : ptr_(ptr)
+      {
+      }
 
-      ~scoped_ptr() {
+      ~scoped_ptr()
+      {
         delete ptr_;
       }
 
-      scoped_ptr(scoped_ptr&& other) noexcept : ptr_(other.ptr_) {
+      scoped_ptr(scoped_ptr&& other) noexcept : ptr_(other.ptr_)
+      {
         other.ptr_ = nullptr;
       }
 
-      scoped_ptr& operator=(scoped_ptr&& other) noexcept {
-        if (this != &other) {
+      scoped_ptr& operator=(scoped_ptr&& other) noexcept
+      {
+        if(this != &other)
+        {
           delete ptr_;
           ptr_ = other.ptr_;
           other.ptr_ = nullptr;
@@ -32,15 +39,18 @@ namespace cpkg::core
       scoped_ptr(const scoped_ptr&) = delete;
       scoped_ptr& operator=(const scoped_ptr&) = delete;
 
-      T& operator*() const {
+      T& operator*() const
+      {
         return *ptr_;
       }
 
-      T* operator->() const {
+      T* operator->() const
+      {
         return ptr_;
       }
 
-      operator bool() {
+      operator bool()
+      {
         return ptr_ != nullptr;
       }
 
@@ -54,17 +64,20 @@ namespace cpkg::core
         return *ptr_;
       }
 
-      T* get() const {
+      T* get() const
+      {
         return ptr_;
       }
 
-      T* release() {
+      T* release()
+      {
         T* temp = ptr_;
         ptr_ = nullptr;
         return temp;
       }
 
-      void reset(T* ptr = nullptr) {
+      void reset(T* ptr = nullptr)
+      {
         delete ptr_;
         ptr_ = ptr;
       }
@@ -73,13 +86,13 @@ namespace cpkg::core
       T* ptr_;
   };
 
-  template<typename Type>
+  template <typename Type>
   scoped_ptr<Type> make_scoped(Type value)
   {
     return scoped_ptr<Type>(new Type(value));
   }
 
-  template<typename Type>
+  template <typename Type>
   scoped_ptr<Type> make_scoped(Type* value)
   {
     return scoped_ptr<Type>(value);

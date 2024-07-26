@@ -22,6 +22,13 @@ set(SOURCES
     src/program_info/ProgramInfo.h
     src/utils/version.cpp
     src/updater/updater.h
+    includes/cache.h
+    src/cache/cache.cpp
+    includes/definitions.h
+    src/repositories/windows/repositories.cpp
+    src/repositories/repositories.h
+    src/utils/threading.h
+    src/utils/threading.cpp
     )
 
 message(STATUS "cpkg-cli found! [ver ${CPKG_VERSION}]")

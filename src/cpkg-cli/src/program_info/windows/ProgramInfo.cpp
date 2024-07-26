@@ -4,6 +4,8 @@
  * Description: Information about the program and utils
  */
 #include "../ProgramInfo.h"
+#include "definitions.h"
+#include "cache.h"
 #include <windows.h>
 #include <ctime>
 #include <ShlObj.h>
@@ -12,7 +14,14 @@
 #include <fstream>
 #include <iostream>
 #include <filesystem>
+#include <regex>
+#include <terminal_character_help.h>
+#include <vector>
+#include <thread>
+#include <string>
+#include <wininet.h>
 
+#pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "ole32.lib")
 
 namespace cpkg::info
@@ -21,7 +30,7 @@ namespace cpkg::info
   const char* last_update_time_key_path = "Software\\Bonsall2004\\cpkg";
   const char* last_update_time_key_name = "last_update_time";
 
-  const wchar_t* repository_list_name = L"cpkg_repo.dat";
+  const wchar_t* repository_list_name = L"repositories.cpkg";
 
   time_t get_last_update_time()
   {
@@ -43,7 +52,6 @@ namespace cpkg::info
     RegCloseKey(hKey);
     return lastUpdateTime;
   }
-
   bool set_last_update_time()
   {
     HKEY hKey;
@@ -70,218 +78,108 @@ namespace cpkg::info
     return true;
   }
 
-  std::string wide_to_narrow(const std::wstring& wide)
+  bool is_valid_line(const std::wstring& line)
   {
-    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-    return converter.to_bytes(wide);
+    std::wregex pattern(LR"(^[^\s]+:https://[^\s]+$)");
+    return std::regex_match(line, pattern);
   }
 
-  std::wstring narrow_to_wide(const std::string& narrow)
+  bool download_file(const std::wstring& url, const std::wstring& file_path)
   {
-    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-    return converter.from_bytes(narrow);
-  }
+    HINTERNET hInternet = nullptr;
+    HINTERNET hConnect = nullptr;
+    bool result = false;
 
-  std::wstring get_roaming_directory()
-  {
-    wchar_t path[MAX_PATH];
-    if(SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_APPDATA, nullptr, 0, path)))
+    // Initialize WinINet
+    hInternet = InternetOpen("File Downloader", INTERNET_OPEN_TYPE_DIRECT, nullptr, nullptr, 0);
+    if(hInternet == nullptr)
     {
-      return { path };
-    }
-    return {};
-  }
-  std::string wstring_to_string(const std::wstring& wstr)
-  {
-    if(wstr.empty()) return {};
-
-    int size_needed = WideCharToMultiByte(CP_ACP, 0, wstr.c_str(), (int)wstr.size(), nullptr, 0, nullptr, nullptr);
-    std::string str(size_needed, 0);
-
-    WideCharToMultiByte(CP_ACP, 0, wstr.c_str(), (int)wstr.size(), &str[0], size_needed, nullptr, nullptr);
-
-    return str;
-  }
-
-  bool save_repository_list(const std::vector<std::string>& vec)
-  {
-    std::wstring roamingDir = get_roaming_directory();
-    if(roamingDir.empty())
-    {
-      std::cerr << "Error: Roaming directory is empty." << std::endl;
+      std::wcerr << L"InternetOpen failed: " << GetLastError() << std::endl;
       return false;
     }
 
-    roamingDir += L"\\.cpkg\\";
-    std::string roamingDirStr = wstring_to_string(roamingDir);
-
-    if(!std::filesystem::exists(roamingDirStr))
+    // Open the URL
+    hConnect = InternetOpenUrlW(hInternet, url.c_str(), nullptr, 0, INTERNET_FLAG_RELOAD, 0);
+    if(hConnect == nullptr)
     {
-      if(!std::filesystem::create_directories(roamingDirStr))
+      std::wcerr << L"InternetOpenUrlW failed: " << GetLastError() << std::endl;
+      InternetCloseHandle(hInternet);
+      return false;
+    }
+
+    // Check for HTTP response status code
+    DWORD statusCode = 0;
+    DWORD statusCodeSize = sizeof(statusCode);
+    if(!HttpQueryInfoW(hConnect, HTTP_QUERY_STATUS_CODE | HTTP_QUERY_FLAG_NUMBER, &statusCode, &statusCodeSize, nullptr))
+    {
+      std::wcerr << L"HttpQueryInfo failed: " << GetLastError() << std::endl;
+      InternetCloseHandle(hConnect);
+      InternetCloseHandle(hInternet);
+      return false;
+    }
+
+    if(statusCode != 200)
+    { // Check for HTTP status 200 (OK)
+      InternetCloseHandle(hConnect);
+      InternetCloseHandle(hInternet);
+      return false;
+    }
+
+    // Temporary file to hold downloaded content
+    std::wstring tempFilePath = file_path + L".temp";
+    std::ofstream tempFile(tempFilePath.c_str(), std::ios::binary);
+    if(!tempFile.is_open())
+    {
+      std::wcerr << L"Failed to open temporary file: " << tempFilePath << std::endl;
+      InternetCloseHandle(hConnect);
+      InternetCloseHandle(hInternet);
+      return false;
+    }
+
+    // Read data from the URL and write it to the temporary file
+    char buffer[4096];
+    DWORD bytesRead = 0;
+
+    while(InternetReadFile(hConnect, buffer, sizeof(buffer), &bytesRead) && bytesRead > 0)
+    {
+      tempFile.write(buffer, bytesRead);
+    }
+
+    tempFile.close();
+    InternetCloseHandle(hConnect);
+    InternetCloseHandle(hInternet);
+
+    std::ifstream tempFileIn(tempFilePath.c_str());
+    if(!tempFileIn.is_open())
+    {
+      std::wcerr << L"Failed to open temporary file for reading: " << tempFilePath << std::endl;
+      return false;
+    }
+
+    std::ofstream outFile(file_path.c_str(), std::ios::binary | std::ios::app);
+    if(!outFile.is_open())
+    {
+      std::wcerr << L"Failed to open file for appending: " << file_path << std::endl;
+      return false;
+    }
+
+    std::string line;
+    bool hasValidData = false;
+    while(std::getline(tempFileIn, line))
+    {
+      if(is_valid_line(narrow_to_wide(line)))
       {
-        std::cerr << "Error: Failed to create directories. Path: " << roamingDirStr << std::endl;
-        return false;
+        outFile << line << '\n';  // Append valid line to the file
+        hasValidData = true;
       }
     }
 
-    std::wstring filePath = roamingDir + repository_list_name;
-    std::string filePathStr = wstring_to_string(filePath);
+    tempFileIn.close();
+    outFile.close();
+    std::remove(wide_to_narrow(tempFilePath).c_str());
 
-    std::ofstream file(filePathStr.c_str(), std::ios::binary);
-    if(!file.is_open())
-    {
-      std::cerr << "Error: Failed to open file for writing. Path: " << filePathStr << std::endl;
-      return false;
-    }
-
-    size_t vecSize = vec.size();
-    file.write(reinterpret_cast<const char*>(&vecSize), sizeof(vecSize));
-
-    for(const auto& str : vec)
-    {
-      size_t length = str.size();
-      file.write(reinterpret_cast<const char*>(&length), sizeof(length));
-      file.write(str.c_str(), length);
-    }
-
-    if(file.fail())
-    {
-      std::cerr << "Error: Writing to file failed." << std::endl;
-      return false;
-    }
-
-    file.close();
-    return true;
+    result = hasValidData;
+    return result;
   }
 
-  bool get_repository_list(std::vector<std::string>& vec)
-  {
-    std::wstring roamingDir = get_roaming_directory();
-    if(roamingDir.empty())
-    {
-      return false;
-    }
-
-    roamingDir += L"\\.cpkg\\";
-    roamingDir += repository_list_name;
-
-    std::ifstream file(roamingDir.c_str(), std::ios::binary);
-    if(!file)
-    {
-      return false;
-    }
-
-    size_t vecSize;
-    file.read(reinterpret_cast<char*>(&vecSize), sizeof(vecSize));
-    vec.resize(vecSize);
-
-    for(auto& str : vec)
-    {
-      size_t length;
-      file.read(reinterpret_cast<char*>(&length), sizeof(length));
-      str.resize(length);
-      file.read(&str[0], length);
-    }
-
-    file.close();
-    return true;
-  }
-
-  bool append_to_repository_list(const std::vector<std::string>& vec)
-  {
-    std::vector<std::string> current_repository_list;
-    get_repository_list(current_repository_list);
-    for(const auto& str : vec)
-    {
-      current_repository_list.push_back(str);
-    }
-    return save_repository_list(current_repository_list);
-  }
-
-  bool remove_repositories_from_list(const std::vector<std::string>& repositories_to_remove)
-  {
-    std::vector<std::string> current_repository_list;
-    if(!get_repository_list(current_repository_list))
-    {
-      std::cerr << "Error: Failed to retrieve repository list." << std::endl;
-      return false;
-    }
-
-    for(const auto& repository : repositories_to_remove)
-    {
-      auto endPos = std::remove(current_repository_list.begin(), current_repository_list.end(), repository);
-      if(endPos == current_repository_list.end())
-      {
-        std::cerr << "Warning: Repository \"" << repository << "\" not found in the list." << std::endl;
-      }
-      else
-      {
-        current_repository_list.erase(endPos, current_repository_list.end());
-      }
-    }
-
-    if(!save_repository_list(current_repository_list))
-    {
-      std::cerr << "Error: Failed to save repository list." << std::endl;
-      return false;
-    }
-
-    return true;
-  }
-
-  bool remove_repository_from_list(const std::string& repository)
-  {
-    std::vector<std::string> current_repository_list;
-    if(!get_repository_list(current_repository_list))
-    {
-      std::cerr << "Error: Failed to retrieve repository list." << std::endl;
-      return false;
-    }
-
-    auto endPos = std::remove(current_repository_list.begin(), current_repository_list.end(), repository);
-    if(endPos == current_repository_list.end())
-    {
-      std::cerr << "Error: Repository not found." << std::endl;
-      return false;
-    }
-    current_repository_list.erase(endPos, current_repository_list.end());
-
-    if(!save_repository_list(current_repository_list))
-    {
-      std::cerr << "Error: Failed to save repository list." << std::endl;
-      return false;
-    }
-
-    return true;
-  }
-  bool remove_repository_from_list(int index)
-  {
-
-    std::vector<std::string> current_repository_list;
-    if(!get_repository_list(current_repository_list))
-    {
-      std::cerr << "Error: Failed to retrieve repository list." << std::endl;
-      return false;
-    }
-
-    if(index >= 0 && index < static_cast<int>(current_repository_list.size()))
-    {
-
-      current_repository_list.erase(current_repository_list.begin() + index);
-    }
-    else
-    {
-
-      std::cerr << "Error: Index out of bounds." << std::endl;
-      return false;
-    }
-
-    if(!save_repository_list(current_repository_list))
-    {
-      std::cerr << "Error: Failed to save repository list." << std::endl;
-      return false;
-    }
-
-    return true;
-  }
 }

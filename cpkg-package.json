@@ -1,0 +1,8 @@
+{
+  "name": "cpkg",
+  "description": "C++ package manager",
+  "version": "0.0.2",
+  "author": "Bonsall2004",
+  "install_name": "cpkg",
+  "dependencies": []
+}

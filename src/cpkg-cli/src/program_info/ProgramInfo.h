@@ -16,13 +16,21 @@
 
 namespace cpkg::info
 {
+  /**
+   * @return last update time from windows registry
+   */
   time_t get_last_update_time();
+
+  /**
+   * @brief sets the current time to the last_update_time registry key
+   * @return True if sucessful
+   */
   bool set_last_update_time();
 
-  bool get_repository_list(std::vector<std::string>& vec);
-  bool save_repository_list(const std::vector<std::string>& vec);
-  bool append_to_repository_list(const std::vector<std::string>& vec);
-  bool remove_repository_from_list(int index);
-  bool remove_repository_from_list(std::string& repository);
-  bool remove_repositories_from_list(const std::vector<std::string>& repositories_to_remove);
+  /**
+   * @param url URL online for where the resource is located
+   * @param file_path Where the file should be stored
+   * @return True if successful
+   */
+  bool download_file(const std::wstring& url, const std::wstring& file_path);
 }

@@ -13,3 +13,4 @@ endif()
 
 add_subdirectory(cpkg-core)
 add_subdirectory(cpkg-cli)
+add_subdirectory(cpkg-updater)

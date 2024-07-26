@@ -8,7 +8,6 @@
 #include <iomanip>
 #include <updater/updater.h>
 #include <atomic>
-#include <thread>
 #include "../program_info/ProgramInfo.h"
 #include "core/versions/utils.h"
 
