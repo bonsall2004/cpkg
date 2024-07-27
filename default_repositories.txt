@@ -1,1 +1,1 @@
-https://github.com/bonsall2004/cpkg-repositories.git
+https://github.com/bonsall2004/cpkg-pkgs.git
